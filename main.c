@@ -17,6 +17,16 @@
 
 enum piece_type {I, J, L, O, S, T, Z};
 
+char i[4][1] = {{I}, {I}, {I}, {I}};
+char j[3][2] = {{J, J}, {J, -1}, {J, -1}};
+char l[3][2] = {{L, -1}, {L, -1}, {L, L}};
+char o[2][2] = {{O, O}, {O, O}};
+char s[3][2] = {{-1, S}, {S, S}, {S, -1}};
+char t[3][2] = {{T, -1}, {T, T}, {T, -1}};
+char z[3][2] = {{Z, -1}, {Z, Z}, {-1, Z}};
+
+char shape[4][4];
+
 SDL_Window* window;
 SDL_Renderer* renderer;
 
@@ -44,11 +54,13 @@ int moveRight(struct Piece* piece);
 int rotate(struct Piece* piece);
 int drop(struct Piece* piece);
 
+int getRotatedMap(struct Piece* piece, int* w, int* h);
+
 int main(int argc, char* argv[]) {
     SDL_Event e;
 
     struct Piece active_piece;
-    initActivePiece(I, &active_piece);
+    initActivePiece(L, &active_piece);
 
     memset(board, -1, sizeof(board));
 
@@ -143,8 +155,16 @@ int drop(struct Piece* piece) {
         piece->real_y += SQUARE_SIZE;
         return 0;
     } else {
-        int board_x = (piece->x - BOARD_X)/SQUARE_SIZE;
-        int board_y = (piece->y - BOARD_Y)/SQUARE_SIZE;
+        int board_x = (piece->real_x - BOARD_X)/SQUARE_SIZE;
+        int board_y = (piece->real_y - BOARD_Y)/SQUARE_SIZE;
+        int w, h;
+        getRotatedMap(piece, &w, &h);
+
+        for (int n = 0; n < w; n++) {
+            for (int m = 0; m < h; m++) {
+                board[board_x+n][board_y+m] = shape[n][m];
+            }
+        }
     }
 }
 
@@ -213,6 +233,10 @@ void updateRealCoords(struct Piece* piece) {
             break;
 
         case J:
+        case L:
+        case S:
+        case T:
+        case Z:
 
             switch (piece->orientation) {
                 case 0:
@@ -247,19 +271,19 @@ int initActivePiece(enum piece_type type, struct Piece* piece) {
     switch (type) {
         case I:
             {
-            piece->w = 64;
-            piece->h = 16;
+            piece->w = 4*SQUARE_SIZE;
+            piece->h = SQUARE_SIZE;
             break;
             }
         case O:
             {
-            piece->w = 32;
-            piece->h = 32;
+            piece->w = 2*SQUARE_SIZE;
+            piece->h = 2*SQUARE_SIZE;
             break;
             }
         default:
-            piece->w = 48;
-            piece->h = 32;
+            piece->w = 3*SQUARE_SIZE;
+            piece->h = 2*SQUARE_SIZE;
     }
 }
 
@@ -269,30 +293,8 @@ int drawActivePiece(struct Piece* piece) {
     int r_y = (piece->h)/2 - (((piece->h)/2) % SQUARE_SIZE);
     SDL_Point p = {r_x, r_y};
     SDL_Rect rect = {piece->x, piece->y, piece->w, piece->h};
-    switch (piece->type) {
-        case I:
-            SDL_RenderCopyEx(renderer, textures[I], NULL, &rect, or*90, &p, SDL_FLIP_NONE);
-            break;
-        case J:
-            SDL_RenderCopyEx(renderer, textures[J], NULL, &rect, or*90, &p, SDL_FLIP_NONE);
-            break;
-        case L:
-            SDL_RenderCopyEx(renderer, textures[L], NULL, &rect, or*90, &p, SDL_FLIP_NONE);
-            break;
-        case O:
-            SDL_RenderCopyEx(renderer, textures[O], NULL, &rect, or*90, &p, SDL_FLIP_NONE);
-            break;
-        case S:
-            SDL_RenderCopyEx(renderer, textures[S], NULL, &rect, or*90, &p, SDL_FLIP_NONE);
-            break;
-        case T:
-            SDL_RenderCopyEx(renderer, textures[T], NULL, &rect, or*90, &p, SDL_FLIP_NONE);
-            break;
-        case Z:
-            SDL_RenderCopyEx(renderer, textures[Z], NULL, &rect, or*90, &p, SDL_FLIP_NONE);
-            break;
+    SDL_RenderCopyEx(renderer, textures[piece->type], NULL, &rect, or*90, &p, SDL_FLIP_NONE);
 
-    }
     SDL_SetRenderDrawColor(renderer, 127, 127, 127, 127);
     SDL_RenderDrawPoint(renderer, piece->real_x, piece->real_y);
 }
@@ -321,7 +323,7 @@ void drawBoard() {
                     {
                         SDL_Rect src_rect = {0, 0, 16, 16};
                         SDL_Rect dst_rect = {m*SQUARE_SIZE, n*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE};
-                        SDL_RenderCopy(renderer, textures[J], &src_rect, &dst_rect);
+                        SDL_RenderCopy(renderer, textures[L], &src_rect, &dst_rect);
                         break;
                     }
 
@@ -351,7 +353,7 @@ void drawBoard() {
 
                 case Z:
                     {
-                        SDL_Rect src_rect = {16, 0, 32, 16};
+                        SDL_Rect src_rect = {0, 0, 16, 16};
                         SDL_Rect dst_rect = {m*SQUARE_SIZE, n*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE};
                         SDL_RenderCopy(renderer, textures[Z], &src_rect, &dst_rect);
                         break;
@@ -386,4 +388,130 @@ SDL_Texture* loadImageTexture(char* path) {
     }
 
     return texture;
+}
+
+int getRotatedMap(struct Piece* piece, int* w, int* h) {
+    memset(shape, -1, 16);
+
+    int o_w;
+    int o_h;
+
+    switch (piece->type) {
+        case I:
+            o_w = 4;
+            o_h = 1;
+
+            for (int n = 0; n < o_w; n++) {
+                for (int m = 0; m < o_w; m++) {
+                    shape[n][m] = i[n][m];
+                }
+            }
+            break;
+
+        case J:
+            o_w = 3;
+            o_h = 2;
+
+            for (int n = 0; n < o_w; n++) {
+                for (int m = 0; m < o_h; m++) {
+                    shape[n][m] = j[n][m];
+                }
+            }
+
+            break;
+
+        case L:
+            o_w = 3;
+            o_h = 2;
+
+            for (int n = 0; n < o_w; n++) {
+                for (int m = 0; m < o_h; m++) {
+                    shape[n][m] = l[n][m];
+                }
+            }
+
+            break;
+        case O:
+
+            o_w = 2;
+            o_h = 2;
+
+            for (int n = 0; n < o_w; n++) {
+                for (int m = 0; m < o_h; m++) {
+                    shape[n][m] = o[n][m];
+                }
+            }
+
+            break;
+
+        case S:
+            o_w = 3;
+            o_h = 2;
+
+            for (int n = 0; n < o_w; n++) {
+                for (int m = 0; m < o_h; m++) {
+                    shape[n][m] = s[n][m];
+                }
+            }
+            break;
+
+        case T:
+            o_w = 3;
+            o_h = 2;
+
+            for (int n = 0; n < o_w; n++) {
+                for (int m = 0; m < o_w; m++) {
+                    shape[n][m] = t[n][m];
+                }
+            }
+            break;
+
+        case Z:
+            o_w = 3;
+            o_h = 2;
+
+            for (int n = 0; n < o_w; n++) {
+                for (int m = 0; m < o_w; m++) {
+                    shape[n][m] = z[n][m];
+                }
+            }
+            break;
+    }
+
+    if ((piece->orientation & 1)) {
+        *w = o_h;
+        *h = o_w;
+    } else {
+        *w = o_w;
+        *h = o_h;
+    }
+
+    char counter = piece->orientation;
+    
+    int t_w = (piece->orientation & 1) ? o_w : o_h;
+    int t_h = (piece->orientation & 1) ? o_h : o_w;
+
+    while (counter > 0) {
+        int temp = t_w;
+        t_w = t_h;
+        t_h = temp;
+        for (int n = 0; n < 3; n++) {
+            for (int m = 0; m < 3; m++) {
+                char temp = shape[n][m];
+                shape[n][m] = shape[m][n];
+                shape[m][n] = temp;
+            }
+        }
+
+        for (int n = 0; n < t_w; n++) {
+            for (int m = 0; m < t_h; m++) {
+                char temp = shape[n][m];
+                shape[n][m] = shape[t_w-n-1][m];
+                shape[t_w-n-1][m] = temp;
+            }
+        }
+
+
+        --counter;
+    }
 }
