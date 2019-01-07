@@ -15,18 +15,12 @@
 #define BOARD_X 0
 #define BOARD_Y 0
 
-enum piece_type {I = 1, J, L, O, S, T, Z};
+enum piece_type {I, J, L, O, S, T, Z};
 
 SDL_Window* window;
 SDL_Renderer* renderer;
 
-SDL_Texture* i;
-SDL_Texture* j;
-SDL_Texture* l;
-SDL_Texture* o;
-SDL_Texture* s;
-SDL_Texture* t;
-SDL_Texture* z;
+SDL_Texture* textures[7];
 
 char board[BOARD_WIDTH][BOARD_HEIGHT];
 
@@ -56,7 +50,7 @@ int main(int argc, char* argv[]) {
     struct Piece active_piece;
     initActivePiece(I, &active_piece);
 
-    memset(board, 0, BOARD_WIDTH*BOARD_HEIGHT);
+    memset(board, -1, sizeof(board));
 
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         printf("Couldn't initialize SDL.\n");
@@ -85,13 +79,13 @@ int main(int argc, char* argv[]) {
     rect.w = 48;
     rect.h = 32;
 
-    i = loadImageTexture("img/i.png");
-    j = loadImageTexture("img/j.png");
-    l = loadImageTexture("img/l.png");
-    o = loadImageTexture("img/o.png");
-    s = loadImageTexture("img/s.png");
-    t = loadImageTexture("img/t.png");
-    z = loadImageTexture("img/z.png");
+    textures[I] = loadImageTexture("img/i.png");
+    textures[J] = loadImageTexture("img/j.png");
+    textures[L] = loadImageTexture("img/l.png");
+    textures[O] = loadImageTexture("img/o.png");
+    textures[S] = loadImageTexture("img/s.png");
+    textures[T] = loadImageTexture("img/t.png");
+    textures[Z] = loadImageTexture("img/z.png");
 
     while (1) {
         while (SDL_PollEvent(&e)) {
@@ -132,13 +126,9 @@ int main(int argc, char* argv[]) {
         SDL_Delay(50);
     }
 
-    SDL_DestroyTexture(i);
-    SDL_DestroyTexture(j);
-    SDL_DestroyTexture(l);
-    SDL_DestroyTexture(o);
-    SDL_DestroyTexture(s);
-    SDL_DestroyTexture(t);
-    SDL_DestroyTexture(z);
+    for (int i = 0; i < sizeof(textures)/sizeof(textures); i++) {
+        SDL_DestroyTexture(textures[i]);
+    }
 
     IMG_Quit();
     SDL_DestroyRenderer(renderer);
@@ -281,25 +271,25 @@ int drawActivePiece(struct Piece* piece) {
     SDL_Rect rect = {piece->x, piece->y, piece->w, piece->h};
     switch (piece->type) {
         case I:
-            SDL_RenderCopyEx(renderer, i, NULL, &rect, or*90, &p, SDL_FLIP_NONE);
+            SDL_RenderCopyEx(renderer, textures[I], NULL, &rect, or*90, &p, SDL_FLIP_NONE);
             break;
         case J:
-            SDL_RenderCopyEx(renderer, j, NULL, &rect, or*90, &p, SDL_FLIP_NONE);
+            SDL_RenderCopyEx(renderer, textures[J], NULL, &rect, or*90, &p, SDL_FLIP_NONE);
             break;
         case L:
-            SDL_RenderCopyEx(renderer, l, NULL, &rect, or*90, &p, SDL_FLIP_NONE);
+            SDL_RenderCopyEx(renderer, textures[L], NULL, &rect, or*90, &p, SDL_FLIP_NONE);
             break;
         case O:
-            SDL_RenderCopyEx(renderer, o, NULL, &rect, or*90, &p, SDL_FLIP_NONE);
+            SDL_RenderCopyEx(renderer, textures[O], NULL, &rect, or*90, &p, SDL_FLIP_NONE);
             break;
         case S:
-            SDL_RenderCopyEx(renderer, s, NULL, &rect, or*90, &p, SDL_FLIP_NONE);
+            SDL_RenderCopyEx(renderer, textures[S], NULL, &rect, or*90, &p, SDL_FLIP_NONE);
             break;
         case T:
-            SDL_RenderCopyEx(renderer, t, NULL, &rect, or*90, &p, SDL_FLIP_NONE);
+            SDL_RenderCopyEx(renderer, textures[T], NULL, &rect, or*90, &p, SDL_FLIP_NONE);
             break;
         case Z:
-            SDL_RenderCopyEx(renderer, z, NULL, &rect, or*90, &p, SDL_FLIP_NONE);
+            SDL_RenderCopyEx(renderer, textures[Z], NULL, &rect, or*90, &p, SDL_FLIP_NONE);
             break;
 
     }
@@ -314,8 +304,8 @@ void drawBoard() {
                 case I:
                     {
                         SDL_Rect src_rect = {0, 0, 16, 16};
-                        SDL_Rect dst_rect = {m*SQUARE_SIZE, m*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE};
-                        SDL_RenderCopy(renderer, i, &src_rect, &dst_rect);
+                        SDL_Rect dst_rect = {m*SQUARE_SIZE, n*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE};
+                        SDL_RenderCopy(renderer, textures[I], &src_rect, &dst_rect);
                         break;
                     }
 
@@ -323,7 +313,7 @@ void drawBoard() {
                     {
                         SDL_Rect src_rect = {0, 0, 16, 16};
                         SDL_Rect dst_rect = {m*SQUARE_SIZE, n*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE};
-                        SDL_RenderCopy(renderer, j, &src_rect, &dst_rect);
+                        SDL_RenderCopy(renderer, textures[J], &src_rect, &dst_rect);
                         break;
                     }
 
@@ -331,7 +321,7 @@ void drawBoard() {
                     {
                         SDL_Rect src_rect = {0, 0, 16, 16};
                         SDL_Rect dst_rect = {m*SQUARE_SIZE, n*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE};
-                        SDL_RenderCopy(renderer, l, &src_rect, &dst_rect);
+                        SDL_RenderCopy(renderer, textures[J], &src_rect, &dst_rect);
                         break;
                     }
 
@@ -339,7 +329,7 @@ void drawBoard() {
                     {
                         SDL_Rect src_rect = {0, 0, 16, 16};
                         SDL_Rect dst_rect = {m*SQUARE_SIZE, n*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE};
-                        SDL_RenderCopy(renderer, o, &src_rect, &dst_rect);
+                        SDL_RenderCopy(renderer, textures[O], &src_rect, &dst_rect);
                         break;
                     }
 
@@ -347,7 +337,7 @@ void drawBoard() {
                     {
                         SDL_Rect src_rect = {16, 0, 32, 16};
                         SDL_Rect dst_rect = {m*SQUARE_SIZE, n*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE};
-                        SDL_RenderCopy(renderer, s, &src_rect, &dst_rect);
+                        SDL_RenderCopy(renderer, textures[S], &src_rect, &dst_rect);
                         break;
                     }
 
@@ -355,7 +345,7 @@ void drawBoard() {
                     {
                         SDL_Rect src_rect = {16, 0, 32, 16};
                         SDL_Rect dst_rect = {m*SQUARE_SIZE, n*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE};
-                        SDL_RenderCopy(renderer, t, &src_rect, &dst_rect);
+                        SDL_RenderCopy(renderer, textures[T], &src_rect, &dst_rect);
                         break;
                     }
 
@@ -363,7 +353,7 @@ void drawBoard() {
                     {
                         SDL_Rect src_rect = {16, 0, 32, 16};
                         SDL_Rect dst_rect = {m*SQUARE_SIZE, n*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE};
-                        SDL_RenderCopy(renderer, z, &src_rect, &dst_rect);
+                        SDL_RenderCopy(renderer, textures[Z], &src_rect, &dst_rect);
                         break;
                     }
             }
