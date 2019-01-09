@@ -75,7 +75,7 @@ int main(int argc, char* argv[]) {
     initQueue(&queue, queue_array, QUEUE_CAPACITY);
 
     for (int n = 0; n < QUEUE_CAPACITY; n++) {
-        struct Piece temp = {rand()%8, 0, 0, 0, 0, 0, 0};
+        struct Piece temp = {rand()%7, 0, 0, 0, 0, 0, 0};
         initQueuePiece(&temp);
         enqueue(&queue, temp);
     }
@@ -213,7 +213,7 @@ int drop(struct Piece* piece) {
     }
     memcpy(piece, p, sizeof(struct Piece));
     initActivePiece(piece->type, piece);
-    struct Piece np = {rand()%8, 0, 0, 0, 0, 0, 0};
+    struct Piece np = {rand()%7, 0, 0, 0, 0, 0, 0};
     initQueuePiece(&np);
 
     enqueue(&queue, np);
