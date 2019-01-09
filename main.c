@@ -176,22 +176,31 @@ int main(int argc, char* argv[]) {
 int drop(struct Piece* piece) {
     int board_x = (piece->real_x - BOARD_X)/SQUARE_SIZE;
     int board_y = (piece->real_y - BOARD_Y)/SQUARE_SIZE;
+
+    int w = (piece->orientation & 1) ? piece->h/SQUARE_SIZE : piece->w/SQUARE_SIZE;
+    int h = (piece->orientation & 1) ? piece->w/SQUARE_SIZE : piece->h/SQUARE_SIZE;
     if (piece->real_y + ((piece->orientation & 1) ? piece->w: piece->h) + SQUARE_SIZE <= BOARD_Y + BOARD_HEIGHT*SQUARE_SIZE) {
 
-        /*
-        for (int n = board_x; n < board_x + piece->w; n++) {
+        for (int n = 0; n < w; n++) {
+            for (int m = h-1; m >= 0; m--) {
+                if (shape[n][m] >= 0) {
+                    if (board[board_x+n][board_y+m+1] >= 0) {
+                        goto after;
+                    }
+                }
+            }
         }
-        */
         piece->y += SQUARE_SIZE;
         piece->real_y += SQUARE_SIZE;
         return 0;
     }
-    int w = (piece->orientation & 1) ? piece->h/SQUARE_SIZE : piece->w/SQUARE_SIZE;
-    int h = (piece->orientation & 1) ? piece->w/SQUARE_SIZE : piece->h/SQUARE_SIZE;
+    after:
 
     for (int n = 0; n < w; n++) {
         for (int m = 0; m < h; m++) {
-            board[board_x+n][board_y+m] = shape[n][m];
+            if (board[board_x+n][board_y+m] < shape[n][m]) {
+                board[board_x+n][board_y+m] = shape[n][m];
+            }
         }
     }
 
@@ -353,7 +362,7 @@ int initActivePiece(enum piece_type type, struct Piece* piece) {
             break;
         case O:
 
-            piece->w = 3*SQUARE_SIZE;
+            piece->w = 2*SQUARE_SIZE;
             piece->h = 2*SQUARE_SIZE;
 
             for (int n = 0; n < piece->w/SQUARE_SIZE; n++) {
@@ -545,11 +554,6 @@ int rotateShape(struct Piece* piece) {
     int t_w = (piece->orientation & 1) ? piece->h/SQUARE_SIZE : piece->w/SQUARE_SIZE;
     int t_h = (piece->orientation & 1) ? piece->w/SQUARE_SIZE : piece->h/SQUARE_SIZE;
 
-    SDL_Log("--------");
-    for (int n = 0; n < 4; n++) {
-        SDL_Log("%02d %02d %02d %02d", shape[0][n], shape[1][n],shape[2][n],shape[3][n]);
-    }
-
     for (int n = 0; n < 4; n++) {
         for (int m = 0; m < n; m++) {
             char temp = shape[n][m];
@@ -557,11 +561,6 @@ int rotateShape(struct Piece* piece) {
             shape[m][n] = temp;
         }
     }
-    SDL_Log("--------");
-    for (int n = 0; n < 4; n++) {
-        SDL_Log("%02d %02d %02d %02d", shape[0][n], shape[1][n],shape[2][n],shape[3][n]);
-    }
-
 
     for (int n = 0; n < (t_w/2); n++) {
         for (int m = 0; m < t_h; m++) {
@@ -569,10 +568,5 @@ int rotateShape(struct Piece* piece) {
             shape[n][m] = shape[t_w-n-1][m];
             shape[t_w-n-1][m] = temp;
         }
-    }
-
-    SDL_Log("--------");
-    for (int n = 0; n < 4; n++) {
-        SDL_Log("%02d %02d %02d %02d", shape[0][n], shape[1][n],shape[2][n],shape[3][n]);
     }
 }
