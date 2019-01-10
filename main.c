@@ -1,5 +1,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -21,7 +22,7 @@
 #define BOARD_Y 0
 
 #define QUEUE_WIDTH 6
-#define QUEUE_HEIGHT 11 
+#define QUEUE_HEIGHT 12 
 const int QUEUE_X = BOARD_WIDTH*SQUARE_SIZE;
 #define QUEUE_Y 0
 
@@ -40,6 +41,8 @@ char shape[4][4];
 SDL_Window* window;
 SDL_Renderer* renderer;
 
+TTF_Font *font;
+
 SDL_Texture* textures[7];
 
 char board[BOARD_WIDTH][BOARD_HEIGHT];
@@ -56,16 +59,22 @@ void drawBoard();
 void drawQueue();
 int drawActivePiece(struct Piece* piece);
 
-void updateRealCoords(struct Piece* piece);
+void getRealCoords(struct Piece* piece, int* x, int* y);
 int moveLeft(struct Piece* piece);
 int moveRight(struct Piece* piece);
 int rotate(struct Piece* piece);
 int drop(struct Piece* piece);
 
-int rotateShape(struct Piece* piece);
+int rotateShape(struct Piece* piece, char shp[4][4]);
 int getRotatedMap(struct Piece* piece, int* w, int* h);
 
+int score = 0;
+int level = 0;
+
 void printShape();
+
+void lost();
+void clearRows();
 
 int main(int argc, char* argv[]) {
     SDL_Event e;
@@ -98,6 +107,11 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    if (TTF_Init() < 0) {
+        SDL_Log("Failed to initialize SDL_ttf.\n");
+        return -1;
+    }
+
     if ((window = SDL_CreateWindow("Tetris", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, 0)) == NULL) {
         SDL_Log ("Couldn't create window.\n");
         return -1;
@@ -105,6 +119,12 @@ int main(int argc, char* argv[]) {
 
     if ((renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED)) == NULL) {
         SDL_Log("Couldn't initialize renderer.\n");
+        return -1;
+    }
+
+    font = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 24);
+    if (font == NULL) {
+        SDL_Log("Failed to load font: %s\n", TTF_GetError());
         return -1;
     }
 
@@ -144,6 +164,10 @@ int main(int argc, char* argv[]) {
                     case SDL_SCANCODE_DOWN:
                         drop(&active_piece);
                         break;
+
+                    case SDL_SCANCODE_SPACE:
+                        while (drop(&active_piece) == 0);
+                        break;
                 }
             }
         }
@@ -166,6 +190,7 @@ int main(int argc, char* argv[]) {
         SDL_DestroyTexture(textures[i]);
     }
 
+    TTF_Quit();
     IMG_Quit();
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
@@ -195,6 +220,12 @@ int drop(struct Piece* piece) {
         return 0;
     }
     after:
+    
+    if (piece->real_y < 0) {
+       // lost();
+    }
+
+    clearRows();
 
     for (int n = 0; n < w; n++) {
         for (int m = 0; m < h; m++) {
@@ -217,13 +248,66 @@ int drop(struct Piece* piece) {
     initQueuePiece(&np);
 
     enqueue(&queue, np);
+
+    return -1;
+}
+
+void clearRows() {
+    for (int m = 0; m < BOARD_HEIGHT; m++) {
+        char flag = 1;
+        for (int n = 0; n < BOARD_WIDTH; n++) {
+            if (board[n][m] == -1) {
+                flag = 0;
+                break;
+            }
+        }
+        if (flag) {
+            for (int p = m; p < BOARD_HEIGHT-1; p++) {
+                for (int n = 0; n < BOARD_WIDTH; n++) {
+                    board[n][p] = board[n][p+1];
+                }
+            }
+        }
+    }
 }
 
 int rotate(struct Piece* piece) {
-    piece->orientation += 1;
-    piece->orientation %= 4;
+    int x, y;
 
-    updateRealCoords(piece);
+    struct Piece temp_piece;
+    memcpy(&temp_piece, piece, sizeof(struct Piece));
+    temp_piece.orientation = (temp_piece.orientation+1)%4;
+
+    getRealCoords(&temp_piece, &x, &y);
+    int t_w = ((temp_piece.orientation & 1) ? temp_piece.w/SQUARE_SIZE : temp_piece.h/SQUARE_SIZE);
+    int t_h = ((temp_piece.orientation & 1) ? temp_piece.h/SQUARE_SIZE : temp_piece.w/SQUARE_SIZE);
+    SDL_Log("ROTATE");
+    /*
+    for (int n = 0; n < 4; n++) {
+        SDL_Log("%02d %02d %02d %02d", shape[0][n], shape[1][n],shape[2][n],shape[3][n]);
+    }
+    */
+    char l_shape[4][4];
+    memcpy(l_shape, shape, 4*4*sizeof(char));
+    rotateShape(&temp_piece, l_shape);
+
+    for (int n = 0; n < 4; n++) {
+        SDL_Log("%02d %02d %02d %02d", l_shape[0][n], l_shape[1][n], l_shape[2][n], l_shape[3][n]);
+    }
+
+    char flag;
+    for (int n = 0; n < t_w; n++) {
+        for (int m = 0; m < t_h; m++) {
+            if (l_shape[m][n] != -1 && board[x/SQUARE_SIZE+m][y/SQUARE_SIZE+n] != -1) {
+                return -1;
+            }
+        }
+    }
+
+    piece->orientation = (piece->orientation+1)%4;
+
+    piece->real_x = x;
+    piece->real_y = y;
 
     while (piece->real_y + ((piece->orientation & 1) ? piece->w : piece->h) > BOARD_Y + BOARD_HEIGHT*SQUARE_SIZE) {
         piece->y -= SQUARE_SIZE;
@@ -240,7 +324,7 @@ int rotate(struct Piece* piece) {
         piece->real_x += SQUARE_SIZE;
     }
 
-    rotateShape(piece);
+    rotateShape(piece, shape);
 }
 
 int moveLeft(struct Piece* piece) {
@@ -257,32 +341,32 @@ int moveRight(struct Piece* piece) {
     }
 }
 
-void updateRealCoords(struct Piece* piece) {
+void getRealCoords(struct Piece* piece, int* x, int* y) {
     switch (piece->type) {
         case I:
             switch (piece->orientation) {
                 case 0:
-                    piece->real_x = piece->x;
-                    piece->real_y = piece->y;
+                    *x = piece->x;
+                    *y = piece->y;
                     break;
                 case 1:
-                    piece->real_x = piece->x + SQUARE_SIZE;
-                    piece->real_y = piece->y - 2*SQUARE_SIZE;
+                    *x = piece->x + SQUARE_SIZE;
+                    *y = piece->y - 2*SQUARE_SIZE;
                     break;
                 case 2:
-                    piece->real_x = piece->x;
-                    piece->real_y = piece->y - SQUARE_SIZE;
+                    *x = piece->x;
+                    *y = piece->y - SQUARE_SIZE;
                     break;
                 case 3:
-                    piece->real_x = piece->x + 2*SQUARE_SIZE;
-                    piece->real_y = piece->y - 2*SQUARE_SIZE;
+                    *x = piece->x + 2*SQUARE_SIZE;
+                    *y = piece->y - 2*SQUARE_SIZE;
                     break;
             }
             break;
         
         case O:
-            piece->real_x = piece->x;
-            piece->real_y = piece->y;
+            *x = piece->x;
+            *y = piece->y;
             break;
 
         case J:
@@ -293,20 +377,20 @@ void updateRealCoords(struct Piece* piece) {
 
             switch (piece->orientation) {
                 case 0:
-                    piece->real_x = piece->x;
-                    piece->real_y = piece->y;
+                    *x = piece->x;
+                    *y = piece->y;
                     break;
                 case 1:
-                    piece->real_x = piece->x;
-                    piece->real_y = piece->y;
+                    *x = piece->x;
+                    *y = piece->y;
                     break;
                 case 2:
-                    piece->real_x = piece->x - SQUARE_SIZE;
-                    piece->real_y = piece->y;
+                    *x = piece->x - SQUARE_SIZE;
+                    *y = piece->y;
                     break;
                 case 3:
-                    piece->real_x = piece->x;
-                    piece->real_y = piece->y - SQUARE_SIZE;
+                    *x = piece->x;
+                    *y = piece->y - SQUARE_SIZE;
                     break;
             }
 
@@ -410,7 +494,6 @@ int initActivePiece(enum piece_type type, struct Piece* piece) {
             piece->h = 2*SQUARE_SIZE;
     }
 
-    SDL_Log("INIT");
     for (int n = 0; n < 4; n++) {
         SDL_Log("%02d %02d %02d %02d", shape[0][n], shape[1][n],shape[2][n],shape[3][n]);
     }
@@ -456,7 +539,9 @@ void drawQueue() {
         SDL_Rect rect = {QUEUE_X + SQUARE_SIZE, QUEUE_Y + SQUARE_SIZE*(4*n+1), piece->w, piece->h};
         SDL_RenderCopy(renderer, textures[piece->type], NULL, &rect);
     }
-
+    SDL_SetRenderDrawColor(renderer, 127, 127, 127, 127);
+    SDL_Rect rect = {QUEUE_X, QUEUE_Y, QUEUE_WIDTH*SQUARE_SIZE, QUEUE_HEIGHT*SQUARE_SIZE};
+    SDL_RenderDrawRect(renderer, &rect);
 }
 
 void drawBoard() {
@@ -550,23 +635,23 @@ SDL_Texture* loadImageTexture(char* path) {
     return texture;
 }
 
-int rotateShape(struct Piece* piece) {
+int rotateShape(struct Piece* piece, char shp[4][4]) {
     int t_w = (piece->orientation & 1) ? piece->h/SQUARE_SIZE : piece->w/SQUARE_SIZE;
     int t_h = (piece->orientation & 1) ? piece->w/SQUARE_SIZE : piece->h/SQUARE_SIZE;
 
     for (int n = 0; n < 4; n++) {
         for (int m = 0; m < n; m++) {
-            char temp = shape[n][m];
-            shape[n][m] = shape[m][n];
-            shape[m][n] = temp;
+            char temp = shp[n][m];
+            shp[n][m] = shp[m][n];
+            shp[m][n] = temp;
         }
     }
 
     for (int n = 0; n < (t_w/2); n++) {
         for (int m = 0; m < t_h; m++) {
-            char temp = shape[n][m];
-            shape[n][m] = shape[t_w-n-1][m];
-            shape[t_w-n-1][m] = temp;
+            char temp = shp[n][m];
+            shp[n][m] = shp[t_w-n-1][m];
+            shp[t_w-n-1][m] = temp;
         }
     }
 }
