@@ -54,7 +54,7 @@ struct Queue queue;
 struct Piece queue_array[QUEUE_CAPACITY];
 
 SDL_Texture* loadImageTexture(char* path);
-SDL_Texture* loadTextTexture(char* text);
+SDL_Texture* loadTextTexture(char* text, SDL_Color fg, SDL_Color bg);
 
 int initActivePiece(enum piece_type type, struct Piece* piece);
 int initQueuePiece(struct Piece* piece);
@@ -146,7 +146,9 @@ int main(int argc, char* argv[]) {
     textures[T] = loadImageTexture("img/t.png");
     textures[Z] = loadImageTexture("img/z.png");
 
-    text_cache[0] = loadTextTexture("GAME OVER");
+    SDL_Color grey = {0x7f, 0x7f, 0x7f};
+    SDL_Color white = {0, 0, 0};
+    text_cache[0] = loadTextTexture("GAME OVER", white, grey);
 
     while (1) {
         while (SDL_PollEvent(&e)) {
@@ -156,23 +158,43 @@ int main(int argc, char* argv[]) {
             } else if (e.type == SDL_KEYDOWN) {
                 switch (e.key.keysym.scancode) {
                     case SDL_SCANCODE_LEFT:
-                        moveLeft(&active_piece);
+                        switch (state) {
+                            case GAME:
+                                moveLeft(&active_piece);
+                                break;
+                        }
                         break;
 
                     case SDL_SCANCODE_RIGHT:
-                        moveRight(&active_piece);
+                        switch (state) {
+                            case GAME:
+                                moveRight(&active_piece);
+                                break;
+                        }
                         break;
 
                     case SDL_SCANCODE_UP:
-                        rotate(&active_piece);
+                        switch (state) {
+                            case GAME:
+                                rotate(&active_piece);
+                                break;
+                        }
                         break;
 
                     case SDL_SCANCODE_DOWN:
-                        drop(&active_piece);
+                        switch (state) {
+                            case GAME:
+                                drop(&active_piece);
+                                break;
+                        }
                         break;
 
                     case SDL_SCANCODE_SPACE:
-                        while (drop(&active_piece) == 0);
+                        switch (state) {
+                            case GAME:
+                                while (drop(&active_piece) == 0);
+                                break;
+                        }
                         break;
                 }
             }
@@ -186,7 +208,11 @@ int main(int argc, char* argv[]) {
         switch (state) {
             // leave break out, should still draw game in background
             case LOST:
+                drawQueue();
+                drawBoard();
+                //drawActivePiece(&active_piece);
                 drawLostDialog();
+                break;
             case GAME:
                 drawQueue();
                 drawBoard();
@@ -234,7 +260,7 @@ int drop(struct Piece* piece) {
     }
     after:
     
-    if (piece->real_y < 0) {
+    if (piece->real_y <= 0) {
         state = LOST;
     }
 
@@ -266,13 +292,20 @@ int drop(struct Piece* piece) {
 }
 
 void drawLostDialog() {
-    int d_w = 100;
-    int d_h = 150;
-    SDL_Rect dialog_rect = {SCREEN_WIDTH/2 - d_w/2, SCREEN_HEIGHT/2 - d_h/2, SCREEN_WIDTH/2 + d_w/2, SCREEN_HEIGHT/2 + d_h/2};
-    SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
-    SDL_RenderDrawRect(renderer, &dialog_rect);
+
+    //draw box
+    int d_w = 300;
+    int d_h = 200;
+    SDL_Rect dialog_rect = {SCREEN_WIDTH/2 - d_w/2, SCREEN_HEIGHT/2 - d_h/2, d_w, d_h};
     SDL_SetRenderDrawColor(renderer, 0x7F, 0x7F, 0x7F, 0xFF);
-    SDL_RenderDrawLine(renderer, SCREEN_WIDTH/2 - d_w/2, SCREEN_HEIGHT/2 - d_h/2, SCREEN_WIDTH/2 - d_w/2, SCREEN_HEIGHT/2 + d_h/2);
+    SDL_RenderFillRect(renderer, &dialog_rect);
+
+    // draw text
+    int f_w, f_h;
+    TTF_SizeText(font, "GAME OVER", &f_w, &f_h);
+    SDL_Rect text_rect = {SCREEN_WIDTH/2 - f_w/2, SCREEN_HEIGHT/2 - f_h/2, f_w, f_h};
+    SDL_RenderCopy(renderer, text_cache[0], NULL, &text_rect);
+
 }
 
 void printBoard() {
@@ -668,12 +701,11 @@ SDL_Texture* loadImageTexture(char* path) {
     return texture;
 }
 
-SDL_Texture* loadTextTexture(char* text) {
-    SDL_Color color={0xff, 0xff, 0xff}, bg_color={0, 0, 0};
+SDL_Texture* loadTextTexture(char* text, SDL_Color fg, SDL_Color bg) {
     SDL_Surface* text_surface;
     SDL_Texture* text_texture;
 
-    if (!(text_surface = TTF_RenderText_Shaded(font, text, color, bg_color))) {
+    if (!(text_surface = TTF_RenderText_Shaded(font, text, fg, bg))) {
         SDL_Log("Failed to create surface: %s \n", SDL_GetError());
         return NULL;
     }
