@@ -31,7 +31,7 @@ const int QUEUE_X = BOARD_WIDTH*SQUARE_SIZE;
 enum States {MENU, LOST, GAME, ABOUT} state = GAME;
 
 char i[4][1] = {{I}, {I}, {I}, {I}};
-char j[3][2] = {{J, J}, {J, -1}, {J, -1}};
+char j[3][2] = {{J, -1}, {J, -1}, {J, J}};
 char l[3][2] = {{L, L}, {L, -1}, {L, -1}};
 char o[2][2] = {{O, O}, {O, O}};
 char s[3][2] = {{-1, S}, {S, S}, {S, -1}};
@@ -298,7 +298,6 @@ void clearRows() {
                     board[n][p] = board[n][p-1];
                 }
             }
-            printBoard();
         }
     }
 }
