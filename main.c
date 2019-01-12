@@ -28,6 +28,8 @@ const int QUEUE_X = BOARD_WIDTH*SQUARE_SIZE;
 
 #define QUEUE_CAPACITY 3
 
+enum States {MENU, LOST, GAME, ABOUT} state = GAME;
+
 char i[4][1] = {{I}, {I}, {I}, {I}};
 char j[3][2] = {{J, J}, {J, -1}, {J, -1}};
 char l[3][2] = {{L, L}, {L, -1}, {L, -1}};
@@ -44,6 +46,7 @@ SDL_Renderer* renderer;
 TTF_Font *font;
 
 SDL_Texture* textures[7];
+SDL_Texture* text_cache[5];
 
 char board[BOARD_WIDTH][BOARD_HEIGHT];
 
@@ -51,6 +54,7 @@ struct Queue queue;
 struct Piece queue_array[QUEUE_CAPACITY];
 
 SDL_Texture* loadImageTexture(char* path);
+SDL_Texture* loadTextTexture(char* text);
 
 int initActivePiece(enum piece_type type, struct Piece* piece);
 int initQueuePiece(struct Piece* piece);
@@ -73,7 +77,7 @@ int level = 0;
 
 void printShape();
 
-void lost();
+void drawLostDialog();
 void clearRows();
 
 int main(int argc, char* argv[]) {
@@ -142,6 +146,8 @@ int main(int argc, char* argv[]) {
     textures[T] = loadImageTexture("img/t.png");
     textures[Z] = loadImageTexture("img/z.png");
 
+    text_cache[0] = loadTextTexture("GAME OVER");
+
     while (1) {
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) {
@@ -177,9 +183,16 @@ int main(int argc, char* argv[]) {
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderFillRect(renderer, NULL);
 
-        drawQueue();
-        drawBoard();
-        drawActivePiece(&active_piece);
+        switch (state) {
+            // leave break out, should still draw game in background
+            case LOST:
+                drawLostDialog();
+            case GAME:
+                drawQueue();
+                drawBoard();
+                drawActivePiece(&active_piece);
+                break;
+        }
 
         SDL_RenderPresent(renderer);
 
@@ -222,10 +235,9 @@ int drop(struct Piece* piece) {
     after:
     
     if (piece->real_y < 0) {
-       // lost();
+        state = LOST;
     }
 
-    clearRows();
 
     for (int n = 0; n < w; n++) {
         for (int m = 0; m < h; m++) {
@@ -234,6 +246,7 @@ int drop(struct Piece* piece) {
             }
         }
     }
+    clearRows();
 
     struct Piece* p = dequeue(&queue);
 
@@ -252,8 +265,25 @@ int drop(struct Piece* piece) {
     return -1;
 }
 
-void clearRows() {
+void drawLostDialog() {
+    int d_w = 100;
+    int d_h = 150;
+    SDL_Rect dialog_rect = {SCREEN_WIDTH/2 - d_w/2, SCREEN_HEIGHT/2 - d_h/2, SCREEN_WIDTH/2 + d_w/2, SCREEN_HEIGHT/2 + d_h/2};
+    SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
+    SDL_RenderDrawRect(renderer, &dialog_rect);
+    SDL_SetRenderDrawColor(renderer, 0x7F, 0x7F, 0x7F, 0xFF);
+    SDL_RenderDrawLine(renderer, SCREEN_WIDTH/2 - d_w/2, SCREEN_HEIGHT/2 - d_h/2, SCREEN_WIDTH/2 - d_w/2, SCREEN_HEIGHT/2 + d_h/2);
+}
+
+void printBoard() {
     for (int m = 0; m < BOARD_HEIGHT; m++) {
+        SDL_Log("%02d %02d %02d %02d %02d %02d %02d %02d %02d %02d", board[0][m], board[1][m], board[2][m], board[3][m], board[4][m], board[5][m], board[6][m], board[7][m], board[8][m], board[9][m]);
+    }
+}
+
+void clearRows() {
+    int rows_cleared = 0;
+    for (int m = BOARD_HEIGHT-1; m >= 0; m--) {
         char flag = 1;
         for (int n = 0; n < BOARD_WIDTH; n++) {
             if (board[n][m] == -1) {
@@ -262,11 +292,13 @@ void clearRows() {
             }
         }
         if (flag) {
-            for (int p = m; p < BOARD_HEIGHT-1; p++) {
+            SDL_Log("Clearing rows\n");
+            for (int p = m; p > 0; p--) {
                 for (int n = 0; n < BOARD_WIDTH; n++) {
-                    board[n][p] = board[n][p+1];
+                    board[n][p] = board[n][p-1];
                 }
             }
+            printBoard();
         }
     }
 }
@@ -632,7 +664,28 @@ SDL_Texture* loadImageTexture(char* path) {
         SDL_Log("Couldn't convert image at %s to texture.\n", path);
     }
 
+    SDL_FreeSurface(loaded_surface);
+
     return texture;
+}
+
+SDL_Texture* loadTextTexture(char* text) {
+    SDL_Color color={0xff, 0xff, 0xff}, bg_color={0, 0, 0};
+    SDL_Surface* text_surface;
+    SDL_Texture* text_texture;
+
+    if (!(text_surface = TTF_RenderText_Shaded(font, text, color, bg_color))) {
+        SDL_Log("Failed to create surface: %s \n", SDL_GetError());
+        return NULL;
+    }
+
+    if (!(text_texture = SDL_CreateTextureFromSurface(renderer, text_surface))) {
+        SDL_Log("Failed to create texture from surface: %s\n", SDL_GetError());
+        return NULL;
+    }
+
+    SDL_FreeSurface(text_surface);
+    return text_texture;
 }
 
 int rotateShape(struct Piece* piece, char shp[4][4]) {
